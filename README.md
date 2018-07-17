@@ -5,6 +5,7 @@
 ## Getting Started
 
 To run the interactive lexer:
+
 ```bash
 $ cargo run
 > 1 + 1
