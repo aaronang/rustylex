@@ -1,3 +1,6 @@
+use std::io;
+use std::io::prelude::*;
+
 #[derive(Debug)]
 enum Token {
     Number(f32),
@@ -48,11 +51,11 @@ impl Lexer {
     }
 
     fn scan(&mut self) -> Option<Token> {
+        self.skip_whitespace();
+
         if self.position == self.source.len() {
             return None;
         }
-
-        self.skip_whitespace();
 
         match self.next_char() {
             '0'...'9' => {
@@ -90,9 +93,20 @@ impl Iterator for Lexer {
 }
 
 fn main() {
-    let source = String::from("1 + 2 - 3 * 4 * 5");
-    let lexer = Lexer::from(source);
-    for token in lexer {
-        println!("{:?}", token);
+    let stdin = io::stdin();
+    let mut handle = stdin.lock();
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        match handle.read_line(&mut input) {
+            Ok(_) => {
+                let lexer = Lexer::from(input);
+                for token in lexer {
+                    println!("{:?}", token);
+                }
+            }
+            Err(error) => println!("Error: {}", error),
+        }
     }
 }
