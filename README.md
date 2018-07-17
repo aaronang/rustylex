@@ -1,6 +1,6 @@
 # Rusty Lex
 
-A lexer in Rusty 🗣
+>A lexer in Rust.
 
 ## Getting Started
 
