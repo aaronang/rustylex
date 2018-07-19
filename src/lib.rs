@@ -69,22 +69,25 @@ impl Scanner {
             .len();
     }
 
-    fn scan_number(&self) -> String {
+    fn scan_number(&mut self) -> String {
         let mut found_dot = false;
-        self.source[self.position..]
+        let lexeme = self.source[self.position..]
             .chars()
             .take_while(|n| match n {
                 n if n.is_numeric() => true,
                 '.' if !found_dot => {
                     found_dot = true;
                     true
-                }
+                },
                 _ => false,
             })
-            .collect::<String>()
+            .collect::<String>();
+        self.position += lexeme.len();
+        lexeme
     }
 
     fn scan_string(&mut self) -> String {
+        self.position += '"'.len_utf8();
         let lexeme = self.source[self.position..]
             .chars()
             .take_while(|n| n != &'"')
@@ -99,10 +102,12 @@ impl Scanner {
     }
 
     fn scan_identifier(&mut self) -> String {
-        self.source[self.position..]
+        let lexeme = self.source[self.position..]
             .chars()
             .take_while(|n| n.is_alphanumeric() || n == &'_')
-            .collect::<String>()
+            .collect::<String>();
+        self.position += lexeme.len();
+        lexeme
     }
 
     fn match_keyword(&self, keyword: &str) -> Option<Token> {
@@ -174,17 +179,6 @@ impl Scanner {
                 self.position += ';'.len_utf8();
                 Some(Token::Semicolon)
             }
-            '0'...'9' => {
-                let lexeme = self.scan_number();
-                self.position += lexeme.len();
-                Some(Token::Number(lexeme.parse().unwrap()))
-            },
-            '"' => {
-                self.position += '"'.len_utf8();
-                let lexeme = self.scan_string();
-                self.position += '"'.len_utf8();
-                Some(Token::String(lexeme))
-            },
             '+' => {
                 self.position += '+'.len_utf8();
                 Some(Token::Plus)
@@ -197,16 +191,6 @@ impl Scanner {
                 self.position += '*'.len_utf8();
                 Some(Token::Star)
             }
-            '/' => {
-                self.position += '/'.len_utf8();
-                if self.next_char_eq('/') {
-                    self.position += '/'.len_utf8();
-                    self.skip_comment();
-                    self.scan()
-                } else {
-                    Some(Token::Slash)
-                }
-            },
             '!' => {
                 self.position += '!'.len_utf8();
                 if self.next_char_eq('=') {
@@ -243,9 +227,26 @@ impl Scanner {
                     Some(Token::Greater)
                 }
             },
+            '0'...'9' => {
+                let lexeme = self.scan_number();
+                Some(Token::Number(lexeme.parse().unwrap()))
+            },
+            '"' => {
+                let lexeme = self.scan_string();
+                Some(Token::String(lexeme))
+            },
+            '/' => {
+                self.position += '/'.len_utf8();
+                if self.next_char_eq('/') {
+                    self.position += '/'.len_utf8();
+                    self.skip_comment();
+                    self.scan()
+                } else {
+                    Some(Token::Slash)
+                }
+            },
             c if c.is_alphabetic() => {
                 let lexeme = self.scan_identifier();
-                self.position += lexeme.len();
                 match self.match_keyword(&lexeme[..]) {
                     None => Some(Token::Identifier(lexeme)),
                     keyword => keyword
