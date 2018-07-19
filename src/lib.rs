@@ -98,6 +98,35 @@ impl Scanner {
         }
     }
 
+    fn scan_identifier(&mut self) -> String {
+        self.source[self.position..]
+            .chars()
+            .take_while(|n| n.is_alphanumeric() || n == &'_')
+            .collect::<String>()
+    }
+
+    fn match_keyword(&self, keyword: &str) -> Option<Token> {
+        match keyword {
+            "and" => Some(Token::And),
+            "class" => Some(Token::Class),
+            "else" => Some(Token::Else),
+            "false" => Some(Token::False),
+            "for" => Some(Token::For),
+            "fun" => Some(Token::Fun),
+            "if" => Some(Token::If),
+            "nil" => Some(Token::Nil),
+            "or" => Some(Token::Or),
+            "print" => Some(Token::Print),
+            "return" => Some(Token::Return),
+            "super" => Some(Token::Super),
+            "this" => Some(Token::This),
+            "true" => Some(Token::True),
+            "var" => Some(Token::Var),
+            "while" => Some(Token::While),
+            _ => None,
+        }   
+    }
+
     fn next_char(&self) -> Option<char> {
         self.source[self.position..].chars().next()
     }
@@ -212,6 +241,14 @@ impl Scanner {
                     Some(Token::GreaterEqual)
                 } else {
                     Some(Token::Greater)
+                }
+            },
+            c if c.is_alphabetic() => {
+                let lexeme = self.scan_identifier();
+                self.position += lexeme.len();
+                match self.match_keyword(&lexeme[..]) {
+                    None => Some(Token::Identifier(lexeme)),
+                    keyword => keyword
                 }
             },
             c => panic!("Unexpected character: {}.", c),
@@ -381,12 +418,60 @@ mod tests {
         assert_eq!(scanner.next(), Some(Token::String(String::from("Hello 🌎!"))));
         assert_eq!(scanner.next(), Some(Token::Number(42.0)));
     }
+    
 
     #[test]
     #[should_panic]
     fn scan_unterminated_string() {
         let mut scanner = Scanner::from("\"Hello 🌎!");
         scanner.next();
+    }
+
+    #[test]
+    fn scan_identfier() {
+        let mut scanner = Scanner::from("hello_world");
+        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("hello_world"))));
+    }
+
+    #[test]
+    fn scan_class_keyword() {
+        let mut scanner = Scanner::from("class");
+        assert_eq!(scanner.next(), Some(Token::Class));
+    }
+
+    #[test]
+    fn scan_and_keyword() {
+        let mut scanner = Scanner::from("and");
+        assert_eq!(scanner.next(), Some(Token::And));
+    }
+
+    #[test]
+    fn scan_for_loop() {
+        let mut scanner = Scanner::from("for (var a = 1; a < 10; a = a + 1) {
+  print a;
+}");
+        assert_eq!(scanner.next(), Some(Token::For));
+        assert_eq!(scanner.next(), Some(Token::LeftParen));
+        assert_eq!(scanner.next(), Some(Token::Var));
+        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("a"))));
+        assert_eq!(scanner.next(), Some(Token::Equal));
+        assert_eq!(scanner.next(), Some(Token::Number(1.0)));
+        assert_eq!(scanner.next(), Some(Token::Semicolon));
+        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("a"))));
+        assert_eq!(scanner.next(), Some(Token::Less));
+        assert_eq!(scanner.next(), Some(Token::Number(10.0)));
+        assert_eq!(scanner.next(), Some(Token::Semicolon));
+        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("a"))));
+        assert_eq!(scanner.next(), Some(Token::Equal));
+        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("a"))));
+        assert_eq!(scanner.next(), Some(Token::Plus));
+        assert_eq!(scanner.next(), Some(Token::Number(1.0)));
+        assert_eq!(scanner.next(), Some(Token::RightParen));
+        assert_eq!(scanner.next(), Some(Token::LeftBrace));
+        assert_eq!(scanner.next(), Some(Token::Print));
+        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("a"))));
+        assert_eq!(scanner.next(), Some(Token::Semicolon));
+        assert_eq!(scanner.next(), Some(Token::RightBrace));
     }
 
     #[test]
