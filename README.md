@@ -4,7 +4,7 @@
 
 ## Getting Started
 
-To run the interactive lexer:
+To run the Lox REPL:
 
 ```bash
 $ cargo run
@@ -12,6 +12,12 @@ $ cargo run
 Number(1.0)
 Plus
 Number(1.0)
+```
+
+To run a Lox program from a file:
+
+```bash
+$ cargo run main.lox
 ```
 
 ## Acknowledgement
