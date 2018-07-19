@@ -1,5 +1,5 @@
 extern crate rustylex;
-use rustylex::Scanner;
+use rustylex::scanner::Scanner;
 use std::io;
 use std::io::prelude::*;
 
