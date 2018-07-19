@@ -1,4 +1,4 @@
-# Rusty Lex · [![Build Status](https://travis-ci.org/aaronang/rustylex.svg?branch=master)](https://travis-ci.org/aaronang/rustylex)
+# Rusty Lex · [![Build Status](https://travis-ci.org/aaronang/rustylox.svg?branch=master)](https://travis-ci.org/aaronang/rustylox)
 
 >A lexer in Rust.
 
