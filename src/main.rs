@@ -1,4 +1,5 @@
 extern crate rustylox;
+extern crate env_logger;
 use rustylox::scanner::Scanner;
 use std::env;
 use std::fs::File;
@@ -6,6 +7,7 @@ use std::io;
 use std::io::prelude::*;
 
 fn main() {
+    env_logger::init();
     let args: Vec<String> = env::args().collect();
     match args.as_slice() {
         [_] => run_prompt(),

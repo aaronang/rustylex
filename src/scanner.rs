@@ -1,3 +1,5 @@
+use std::io;
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
     LeftParen,
@@ -86,7 +88,7 @@ impl Scanner {
         lexeme
     }
 
-    fn scan_string(&mut self) -> String {
+    fn scan_string(&mut self) -> Result<String, io::Error> {
         self.position += '"'.len_utf8();
         let lexeme = self.source[self.position..]
             .chars()
@@ -95,9 +97,9 @@ impl Scanner {
         self.position += lexeme.len();
         if self.next_char_eq('"') {
             self.position += '"'.len_utf8();
-            lexeme
+            Ok(lexeme)
         } else {
-            panic!("Unterminated string.");
+            Err(io::Error::new(io::ErrorKind::InvalidInput, "Unterminated string."))
         }
     }
 
@@ -231,9 +233,12 @@ impl Scanner {
                 let lexeme = self.scan_number();
                 Some(Token::Number(lexeme.parse().unwrap()))
             },
-            '"' => {
-                let lexeme = self.scan_string();
-                Some(Token::String(lexeme))
+            '"' => match self.scan_string() {
+                Ok(lexeme) => Some(Token::String(lexeme)),
+                Err(error) => {
+                    error!("{}", error);
+                    self.scan()
+                }
             },
             '/' => {
                 self.position += '/'.len_utf8();
@@ -252,7 +257,11 @@ impl Scanner {
                     keyword => keyword
                 }
             },
-            c => panic!("Unexpected character: {}.", c),
+            c => {
+                error!("Unexpected character: {}.", c);
+                self.position += c.len_utf8();
+                self.scan()
+            },
         }
     }
 }
@@ -422,10 +431,9 @@ mod tests {
     
 
     #[test]
-    #[should_panic]
     fn scan_unterminated_string() {
         let mut scanner = Scanner::from("\"Hello 🌎!");
-        scanner.next();
+        assert_eq!(scanner.next(), None);
     }
 
     #[test]
@@ -476,9 +484,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn scan_unexpected() {
         let mut scanner = Scanner::from("💩");
-        scanner.next();
+        assert_eq!(scanner.next(), None);
     }
 }
