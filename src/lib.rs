@@ -58,10 +58,18 @@ impl Scanner {
             .chars()
             .take_while(|c| c.is_whitespace())
             .collect::<String>()
-            .len()
+            .len();
     }
 
-    fn number(&self) -> String {
+    fn skip_comment(&mut self) {
+        self.position += self.source[self.position..]
+            .chars()
+            .take_while(|n| n != &'\n')
+            .collect::<String>()
+            .len();
+    }
+
+    fn scan_number(&self) -> String {
         let mut found_dot = false;
         self.source[self.position..]
             .chars()
@@ -74,6 +82,20 @@ impl Scanner {
                 _ => false,
             })
             .collect::<String>()
+    }
+
+    fn scan_string(&mut self) -> String {
+        let lexeme = self.source[self.position..]
+            .chars()
+            .take_while(|n| n != &'"')
+            .collect::<String>();
+        self.position += lexeme.len();
+        if self.next_char_eq('"') {
+            self.position += '"'.len_utf8();
+            lexeme
+        } else {
+            panic!("Unterminated string.");
+        }
     }
 
     fn next_char(&self) -> Option<char> {
@@ -124,10 +146,16 @@ impl Scanner {
                 Some(Token::Semicolon)
             }
             '0'...'9' => {
-                let lexeme = self.number();
+                let lexeme = self.scan_number();
                 self.position += lexeme.len();
                 Some(Token::Number(lexeme.parse().unwrap()))
-            }
+            },
+            '"' => {
+                self.position += '"'.len_utf8();
+                let lexeme = self.scan_string();
+                self.position += '"'.len_utf8();
+                Some(Token::String(lexeme))
+            },
             '+' => {
                 self.position += '+'.len_utf8();
                 Some(Token::Plus)
@@ -142,7 +170,13 @@ impl Scanner {
             }
             '/' => {
                 self.position += '/'.len_utf8();
-                Some(Token::Slash)
+                if self.next_char_eq('/') {
+                    self.position += '/'.len_utf8();
+                    self.skip_comment();
+                    self.scan()
+                } else {
+                    Some(Token::Slash)
+                }
             },
             '!' => {
                 self.position += '!'.len_utf8();
@@ -315,6 +349,44 @@ mod tests {
     fn scan_greater_equal() {
         let mut scanner = Scanner::from(">=");
         assert_eq!(scanner.next(), Some(Token::GreaterEqual));
+    }
+
+    #[test]
+    fn skip_comment_without_text() {
+        let mut scanner = Scanner::from("//");
+        assert_eq!(scanner.next(), None);
+    }
+
+    #[test]
+    fn skip_comment_with_text() {
+        let mut scanner = Scanner::from("// skip me");
+        assert_eq!(scanner.next(), None);
+    }
+
+    #[test]
+    fn skip_comment_followed_by_plus() {
+        let mut scanner = Scanner::from("// skip me\n+");
+        assert_eq!(scanner.next(), Some(Token::Plus));
+    }
+
+    #[test]
+    fn scan_string() {
+        let mut scanner = Scanner::from("\"Hello 🌎!\"");
+        assert_eq!(scanner.next(), Some(Token::String(String::from("Hello 🌎!"))));
+    }
+
+    #[test]
+    fn scan_string_and_number() {
+        let mut scanner = Scanner::from("\"Hello 🌎!\" 42");
+        assert_eq!(scanner.next(), Some(Token::String(String::from("Hello 🌎!"))));
+        assert_eq!(scanner.next(), Some(Token::Number(42.0)));
+    }
+
+    #[test]
+    #[should_panic]
+    fn scan_unterminated_string() {
+        let mut scanner = Scanner::from("\"Hello 🌎!");
+        scanner.next();
     }
 
     #[test]
