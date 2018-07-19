@@ -45,6 +45,7 @@ pub enum Token {
 pub struct Scanner {
     source: String,
     position: usize,
+    line: usize,
 }
 
 impl Scanner {
@@ -52,15 +53,24 @@ impl Scanner {
         Scanner {
             source: String::from(source),
             position: 0,
+            line: 1,
         }
     }
 
     fn skip_whitespace(&mut self) {
+        let mut new_lines = 0;
         self.position += self.source[self.position..]
             .chars()
-            .take_while(|c| c.is_whitespace())
+            .take_while(|c| match c {
+                '\n' => {
+                    new_lines += 1;
+                    true
+                },
+                x => x.is_whitespace(),
+            })
             .collect::<String>()
             .len();
+        self.line += new_lines;
     }
 
     fn skip_comment(&mut self) {
@@ -80,7 +90,7 @@ impl Scanner {
                 '.' if !found_dot => {
                     found_dot = true;
                     true
-                },
+                }
                 _ => false,
             })
             .collect::<String>();
@@ -99,7 +109,10 @@ impl Scanner {
             self.position += '"'.len_utf8();
             Ok(lexeme)
         } else {
-            Err(io::Error::new(io::ErrorKind::InvalidInput, "Unterminated string."))
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Unterminated string, line {}.", self.line),
+            ))
         }
     }
 
@@ -131,7 +144,7 @@ impl Scanner {
             "var" => Some(Token::Var),
             "while" => Some(Token::While),
             _ => None,
-        }   
+        }
     }
 
     fn next_char(&self) -> Option<char> {
@@ -201,7 +214,7 @@ impl Scanner {
                 } else {
                     Some(Token::Bang)
                 }
-            },
+            }
             '=' => {
                 self.position += '='.len_utf8();
                 if self.next_char_eq('=') {
@@ -210,7 +223,7 @@ impl Scanner {
                 } else {
                     Some(Token::Equal)
                 }
-            },
+            }
             '<' => {
                 self.position += '<'.len_utf8();
                 if self.next_char_eq('=') {
@@ -219,7 +232,7 @@ impl Scanner {
                 } else {
                     Some(Token::Less)
                 }
-            },
+            }
             '>' => {
                 self.position += '>'.len_utf8();
                 if self.next_char_eq('=') {
@@ -228,11 +241,11 @@ impl Scanner {
                 } else {
                     Some(Token::Greater)
                 }
-            },
+            }
             '0'...'9' => {
                 let lexeme = self.scan_number();
                 Some(Token::Number(lexeme.parse().unwrap()))
-            },
+            }
             '"' => match self.scan_string() {
                 Ok(lexeme) => Some(Token::String(lexeme)),
                 Err(error) => {
@@ -249,19 +262,19 @@ impl Scanner {
                 } else {
                     Some(Token::Slash)
                 }
-            },
+            }
             c if c.is_alphabetic() => {
                 let lexeme = self.scan_identifier();
                 match self.match_keyword(&lexeme[..]) {
                     None => Some(Token::Identifier(lexeme)),
-                    keyword => keyword
+                    keyword => keyword,
                 }
-            },
+            }
             c => {
-                error!("Unexpected character: {}.", c);
+                error!("Unexpected character: {}, line {}.", c, self.line);
                 self.position += c.len_utf8();
                 self.scan()
-            },
+            }
         }
     }
 }
@@ -419,16 +432,21 @@ mod tests {
     #[test]
     fn scan_string() {
         let mut scanner = Scanner::from("\"Hello 🌎!\"");
-        assert_eq!(scanner.next(), Some(Token::String(String::from("Hello 🌎!"))));
+        assert_eq!(
+            scanner.next(),
+            Some(Token::String(String::from("Hello 🌎!")))
+        );
     }
 
     #[test]
     fn scan_string_and_number() {
         let mut scanner = Scanner::from("\"Hello 🌎!\" 42");
-        assert_eq!(scanner.next(), Some(Token::String(String::from("Hello 🌎!"))));
+        assert_eq!(
+            scanner.next(),
+            Some(Token::String(String::from("Hello 🌎!")))
+        );
         assert_eq!(scanner.next(), Some(Token::Number(42.0)));
     }
-    
 
     #[test]
     fn scan_unterminated_string() {
@@ -439,7 +457,10 @@ mod tests {
     #[test]
     fn scan_identfier() {
         let mut scanner = Scanner::from("hello_world");
-        assert_eq!(scanner.next(), Some(Token::Identifier(String::from("hello_world"))));
+        assert_eq!(
+            scanner.next(),
+            Some(Token::Identifier(String::from("hello_world")))
+        );
     }
 
     #[test]
@@ -456,9 +477,11 @@ mod tests {
 
     #[test]
     fn scan_for_loop() {
-        let mut scanner = Scanner::from("for (var a = 1; a < 10; a = a + 1) {
+        let mut scanner = Scanner::from(
+            "for (var a = 1; a < 10; a = a + 1) {
   print a;
-}");
+}",
+        );
         assert_eq!(scanner.next(), Some(Token::For));
         assert_eq!(scanner.next(), Some(Token::LeftParen));
         assert_eq!(scanner.next(), Some(Token::Var));
